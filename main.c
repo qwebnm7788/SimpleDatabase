@@ -7,13 +7,23 @@
 #include <unistd.h>
 #include <errno.h>
 
-struct InputBuffer_t {
-	char* buffer;
-	size_t buffer_length;
-	ssize_t input_length;
-};
+#define COLUMN_USERNAME_SIZE 32
+#define COLUMN_EMAIL_SIZE 255
 
-typedef struct InputBuffer_t InputBuffer;
+#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute)
+
+#define ID_SIZE sizeof(((Row*)0)->id)
+#define USERNAME_SIZE sizeof(((Row*)0)->username)
+#define EMAIL_SIZE sizeof(((Row*)0)->email)
+#define ID_OFFSET  0
+#define USERNAME_OFFSET  (ID_OFFSET + ID_SIZE)
+#define EMAIL_OFFSET  (USERNAME_OFFSET + USERNAME_SIZE)
+#define ROW_SIZE  (ID_SIZE + USERNAME_SIZE + EMAIL_SIZE)
+
+#define PAGE_SIZE 4096
+#define TABLE_MAX_PAGES 100
+#define ROWS_PER_PAGE (PAGE_SIZE / ROW_SIZE)
+#define TABLE_MAX_ROWS (ROWS_PER_PAGE * TABLE_MAX_PAGES)
 
 enum MetaCommandResult_t {
 	META_COMMAND_SUCCESS,
@@ -39,8 +49,20 @@ enum ExecuteResult_t {
 
 typedef enum ExecuteResult_t ExecuteResult;
 
-#define COLUMN_USERNAME_SIZE 32
-#define COLUMN_EMAIL_SIZE 255
+enum StatementType_t {
+	STATEMENT_INSERT,
+	STATEMENT_SELECT
+};
+
+typedef enum StatementType_t StatementType;
+
+struct InputBuffer_t {
+	char* buffer;
+	size_t buffer_length;
+	ssize_t input_length;
+};
+
+typedef struct InputBuffer_t InputBuffer;
 
 struct Row_t {
 	uint32_t id;
@@ -50,12 +72,6 @@ struct Row_t {
 
 typedef struct Row_t Row;
 
-enum StatementType_t {
-	STATEMENT_INSERT,
-	STATEMENT_SELECT
-};
-
-typedef enum StatementType_t StatementType;
 
 struct Statement_t {
 	StatementType type;
@@ -63,16 +79,6 @@ struct Statement_t {
 };
 
 typedef struct Statement_t Statement;
-
-#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute)
-
-#define ID_SIZE sizeof(((Row*)0)->id)
-#define USERNAME_SIZE sizeof(((Row*)0)->username)
-#define EMAIL_SIZE sizeof(((Row*)0)->email)
-#define ID_OFFSET  0
-#define USERNAME_OFFSET  (ID_OFFSET + ID_SIZE)
-#define EMAIL_OFFSET  (USERNAME_OFFSET + USERNAME_SIZE)
-#define ROW_SIZE  (ID_SIZE + USERNAME_SIZE + EMAIL_SIZE)
 
 void serialized_row(Row* source, void* destination) {
 	memcpy(destination + ID_OFFSET, &(source->id), ID_SIZE);
@@ -85,11 +91,6 @@ void deserialize_row(void* source, Row* destination) {
 	memcpy(&(destination->username), source + USERNAME_OFFSET, USERNAME_SIZE);
 	memcpy(&(destination->email), source + EMAIL_OFFSET, EMAIL_SIZE);
 }
-
-#define PAGE_SIZE 4096
-#define TABLE_MAX_PAGES 100
-#define ROWS_PER_PAGE (PAGE_SIZE / ROW_SIZE)
-#define TABLE_MAX_ROWS (ROWS_PER_PAGE * TABLE_MAX_PAGES)
 
 struct Pager_t {
 	int file_descriptor;
